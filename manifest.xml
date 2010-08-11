@@ -1,0 +1,12 @@
+<package>
+  <description brief="actionlib_benchmark">
+    Simple "benchmarking" of actionlib communication.
+  </description>
+  <author>Tim Niemueller</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/actionlib_benchmark</url>
+  <depend package="actionlib"/>
+  <depend package="actionlib_lua"/>
+  <depend package="actionlib_msgs"/>
+</package>
