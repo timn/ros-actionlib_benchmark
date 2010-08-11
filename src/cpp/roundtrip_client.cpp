@@ -1,8 +1,8 @@
 
 /***************************************************************************
- *  roundtrip_server.cpp - Actionlib roundtrip test C++ server
+ *  roundtrip_client.cpp - Actionlib roundtrip test C++ server
  *
- *  Created: Wed Aug 11 17:48:38 2010
+ *  Created: Wed Aug 11 17:49:09 2010
  *  Copyright  2010  Tim Niemueller [www.niemueller.de]
  *
  ****************************************************************************/
@@ -36,43 +36,41 @@
  */
 
 #include <ros/ros.h>
-#include <actionlib/server/simple_action_server.h>
+#include <actionlib/client/simple_action_client.h>
+#include <actionlib/client/terminal_state.h>
 #include <actionlib_benchmark/RoundtripAction.h>
 
-class RoundtripAction
+
+int main (int argc, char **argv)
 {
-public:
-    
-  RoundtripAction(std::string name) : 
-    __as(__node_handle, name, boost::bind(&RoundtripAction::executeCB, this, _1)),
-    __action_name(name)
-  {
+  ros::init(argc, argv, "roundtrip_client"); 
+
+  actionlib::SimpleActionClient<actionlib_benchmark::RoundtripAction> ac("roundtrip", true); 
+  ac.waitForServer();
+ 
+  // send a goal to the action 
+  actionlib_benchmark::RoundtripGoal goal;
+  goal.start = ros::Time::now();
+  ac.sendGoal(goal);
+  
+  //wait for the action to return
+  bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
+
+  if (finished_before_timeout) {
+    actionlib_benchmark::RoundtripResultConstPtr res;
+    res = ac.getResult();
+    ros::Time now  = ros::Time::now();
+    ros::Time rcvd = res->received;
+    float difftime_send  = (rcvd - goal.start).toSec();
+    float difftime_recv  = (now - rcvd).toSec();
+    float difftime_total = (now - goal.start).toSec();
+    printf("Sending time:    %f\n", difftime_send);
+    printf("Receiving time:  %f\n", difftime_recv);
+    printf("Round trip time: %f\n", difftime_total);
+  } else {
+    ROS_INFO("Action did not finish before the time out.");
   }
 
-  void executeCB(const actionlib_benchmark::RoundtripGoalConstPtr &goal)
-  {
-    // publish info to the console for the user
-    //ROS_INFO("%s", __action_name.c_str());
-        
-    __result.received = ros::Time::now();
-    __as.setSucceeded(__result);
-  }
-
-protected:
-  ros::NodeHandle __node_handle;
-  actionlib::SimpleActionServer<actionlib_benchmark::RoundtripAction> __as;
-  std::string __action_name;
-  // create messages that are used to published feedback/result
-  actionlib_benchmark::RoundtripResult __result;
-};
-
-
-int main(int argc, char** argv)
-{
-  ros::init(argc, argv, "roundtrip");
-
-  RoundtripAction roundtrip(ros::this_node::getName());
-  ros::spin();
-
+  //exit
   return 0;
 }
