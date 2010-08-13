@@ -51,10 +51,10 @@ public:
 
   void executeCB(const actionlib_benchmark::RoundtripGoalConstPtr &goal)
   {
-    // publish info to the console for the user
-    //ROS_INFO("%s", __action_name.c_str());
-        
+
     __result.received = ros::Time::now();
+    //ROS_INFO("%s %u.%u", __action_name.c_str(),
+    //	     __result.received.sec, __result.received.nsec);
     __as.setSucceeded(__result);
   }
 

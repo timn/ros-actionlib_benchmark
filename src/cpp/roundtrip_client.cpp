@@ -40,6 +40,13 @@
 #include <actionlib/client/terminal_state.h>
 #include <actionlib_benchmark/RoundtripAction.h>
 
+#include <cmath>
+
+typedef struct {
+  ros::Time start;
+  ros::Time rcvd;
+  ros::Time now;
+} roundtrip_t;
 
 int main (int argc, char **argv)
 {
@@ -48,29 +55,79 @@ int main (int argc, char **argv)
   actionlib::SimpleActionClient<actionlib_benchmark::RoundtripAction> ac("roundtrip", true); 
   ac.waitForServer();
  
-  // send a goal to the action 
-  actionlib_benchmark::RoundtripGoal goal;
-  goal.start = ros::Time::now();
-  ac.sendGoal(goal);
-  
-  //wait for the action to return
-  bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
+  unsigned int num_runs = 1;
+  if (argc == 2) {
+    num_runs = atoi(argv[1]);
+    if (num_runs == 0) num_runs = 1;
+  }
+  printf("\nC++ Action Client test (%u runs)\n\n", num_runs);
 
-  if (finished_before_timeout) {
-    actionlib_benchmark::RoundtripResultConstPtr res;
-    res = ac.getResult();
-    ros::Time now  = ros::Time::now();
-    ros::Time rcvd = res->received;
-    float difftime_send  = (rcvd - goal.start).toSec();
-    float difftime_recv  = (now - rcvd).toSec();
-    float difftime_total = (now - goal.start).toSec();
-    printf("Sending time:    %f\n", difftime_send);
-    printf("Receiving time:  %f\n", difftime_recv);
-    printf("Round trip time: %f\n", difftime_total);
-  } else {
-    ROS_INFO("Action did not finish before the time out.");
+  std::list<roundtrip_t> results;
+
+  for (unsigned int i = 0; i < num_runs && ros::ok(); ++i) {
+    ros::Rate rate(20);
+
+    // send a goal to the action 
+    actionlib_benchmark::RoundtripGoal goal;
+    goal.start = ros::Time::now();
+    ac.sendGoal(goal);
+  
+    //wait for the action to return
+    bool finished_before_timeout = ac.waitForResult(ros::Duration(30.0));
+
+    if (finished_before_timeout) {
+      actionlib_benchmark::RoundtripResultConstPtr res;
+      res = ac.getResult();
+
+      if (num_runs == 1) {
+	ros::Time now  = ros::Time::now();
+	ros::Time rcvd = res->received;
+	float difftime_send  = (rcvd - goal.start).toSec();
+	float difftime_recv  = (now - rcvd).toSec();
+	float difftime_total = (now - goal.start).toSec();
+	printf("Sending time:    %f\n", difftime_send);
+	printf("Receiving time:  %f\n", difftime_recv);
+	printf("Round trip time: %f\n", difftime_total);
+      } else {
+	roundtrip_t entry;
+	entry.start = goal.start;
+	entry.rcvd  = res->received;
+	entry.now   = ros::Time::now();
+	results.push_back(entry);
+      }
+    } else {
+      ROS_INFO("Action did not finish before the time out.");
+    }
+
+    rate.sleep();
   }
 
-  //exit
+  if (! results.empty()) {
+    float average_send = 0., average_recv = 0., average_total = 0.;
+    size_t n = results.size();
+    for (std::list<roundtrip_t>::iterator i = results.begin(); i != results.end(); ++i) {
+      average_send  += (i->rcvd - i->start).toSec();
+      average_recv  += (i->now  - i->rcvd).toSec();
+      average_total += (i->now  - i->start).toSec();
+    }
+    average_send  /= n;
+    average_recv  /= n;
+    average_total /= n;
+
+    float deviation_send = 0., deviation_recv = 0., deviation_total = 0.;
+    for (std::list<roundtrip_t>::iterator i = results.begin(); i != results.end(); ++i) {
+      deviation_send  += fabs((i->rcvd - i->start).toSec() - average_send);
+      deviation_recv  += fabs((i->now  - i->rcvd).toSec() - average_recv);
+      deviation_total += fabs((i->now  - i->start).toSec() - average_total);
+    }
+    deviation_send  /= n;
+    deviation_recv  /= n;
+    deviation_total /= n;
+
+    printf("SEND   Average: %f    Deviation: %f\n", average_send, deviation_send);
+    printf("RECV   Average: %f    Deviation: %f\n", average_recv, deviation_recv);
+    printf("TOTAL  Average: %f    Deviation: %f\n", average_total, deviation_total);
+  }
+
   return 0;
 }
