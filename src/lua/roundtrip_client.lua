@@ -11,7 +11,6 @@
 
 require("roslua")
 require("actionlib")
-require("socket")
 
 roslua.init_node{master_uri=os.getenv("ROS_MASTER_URI"), node_name="/roundtrip_client"}
 
