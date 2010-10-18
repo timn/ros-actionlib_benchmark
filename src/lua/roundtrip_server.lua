@@ -17,7 +17,7 @@ roslua.init_node{master_uri=os.getenv("ROS_MASTER_URI"), node_name="/roundtrip_s
 function goal_cb(goal_handle, as)
    local result = as.actspec.result_spec:instantiate()
    result.values.received = roslua.Time.now()
-   as:publish_result(goal_handle, result)
+   goal_handle:finish(result)
 end
 
 local as = actionlib.action_server("/roundtrip", "actionlib_benchmark/Roundtrip", goal_cb)
